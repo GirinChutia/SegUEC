@@ -1,0 +1,7 @@
+/best_model.pth
+/uecenv/*
+/catalyst_metrics.ipynb
+/category_info.csv
+/dataset_details.yaml
+/EDA.ipynb
+/test.ipynb
