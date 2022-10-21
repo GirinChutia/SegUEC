@@ -6,7 +6,7 @@ import torch
 from torch import nn
 import numpy as np
 import segmentation_models_pytorch as smp
-
+import mlflow
 from torch.utils.data import Dataset as BaseDataset
 from torch.utils.data import DataLoader
 import os,glob,cv2
@@ -26,6 +26,7 @@ utils.prepare_cudnn(deterministic=True)
 
 print(f"\ntorch: {torch.__version__},\ncatalyst: {catalyst.__version__}")
 
+# -- Load Dataset path details ----------------------------------
 dataset_details = load_yaml(r'dataset_details.yaml')
 
 data_root = dataset_details['DATA_ROOT']
@@ -39,11 +40,30 @@ train_mask_folder = os.path.join(data_root, 'train', 'mask')
 test_image_folder = os.path.join(data_root, 'test', 'img')
 test_mask_folder = os.path.join(data_root, 'test', 'mask')
 
+# -------------------------------------------------------------
+
 im_w = 320
 im_h = 320
 
 ENCODER = 'se_resnext50_32x4d'
 ENCODER_WEIGHTS = 'imagenet'
+DEVICE = 'cuda'
+MLFLOW_EXP = 'experiment1'
+MLFLOW_RUN = 'run3'
+print(f'MLFlow tracking uri : {mlflow.get_tracking_uri()}')
+
+hparams = {'ENCODER':ENCODER,
+           'ENCODER_WEIGHTS':ENCODER_WEIGHTS,
+           'MLFLOW_EXP':MLFLOW_EXP,
+           'MLFLOW_RUN':MLFLOW_RUN,
+           'Image_Width':im_w,
+           'Image_Height':im_h,
+           'Train_Folder':{'ImageFolder':train_image_folder,
+                           'MaskFolder':train_mask_folder},
+           'Validation_Folder':{'ImageFolder':test_image_folder,
+                           'MaskFolder':test_mask_folder}}
+
+# ------------------------------------------------------------
 
 preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, 
                                                      ENCODER_WEIGHTS)
@@ -78,7 +98,6 @@ CLASSES = CLASSES
 ACTIVATION = None 
 #'sigmoid' #sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 # 'softmax2d' = nn.Softmax(dim=1) # softmax in depth direction
-DEVICE = 'cuda'
 
 print(f'\nEncoder : {ENCODER}\n')
 
@@ -109,6 +128,11 @@ runner.train(
     optimizer=optimizer,
     loaders=loaders,
     callbacks=callbacks,
+    hparams=hparams,
+    loggers={"mlflow": dl.MLflowLogger(experiment=MLFLOW_EXP,
+                                       run=MLFLOW_RUN,
+                                       log_batch_metrics=True,
+                                       log_epoch_metrics=True)},
     logdir=Path("logs") / datetime.now().strftime("%Y%m%d-%H%M%S"),
     num_epochs=2,
     verbose=True
